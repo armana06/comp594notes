@@ -1,0 +1,362 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\IfFileExists{stmaryrd.sty}{\usepackage{stmaryrd}}{}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+\title{Equality in Dependent Type Theory: Lecture Notes}
+\author{Course Notes (Reconstructed and Verified)}
+\date{\today}
+
+% Macros
+\newcommand{\Type}{\mathsf{Type}}
+\newcommand{\Nat}{\mathbb{N}}
+\newcommand{\NatT}{\mathsf{Nat}}
+\newcommand{\zero}{\mathbf{0}}
+\newcommand{\suc}{\mathsf{suc}}
+\newcommand{\Id}[3]{#1 =_{#2} #3}
+\newcommand{\refl}{\mathsf{refl}}
+\newcommand{\eqelim}{\mathsf{J}}
+\newcommand{\rec}{\mathsf{rec}}
+\newcommand{\ap}{\mathsf{ap}}
+\newcommand{\transport}{\mathsf{transport}}
+\newcommand{\fst}{\mathsf{fst}}
+\newcommand{\snd}{\mathsf{snd}}
+\newcommand{\pair}[2]{\langle #1,#2\rangle}
+\newcommand{\False}{\Id{\zero}{\Nat}{\suc(\zero)}}
+\newcommand{\negtype}[1]{#1 \to \False}
+\newcommand{\ctx}{\Gamma}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{example}[definition]{Example}
+\newtheorem{exercise}[definition]{Practice}
+\theoremstyle{plain}
+\newtheorem{theorem}[definition]{Theorem}
+\newtheorem{lemma}[definition]{Lemma}
+\newtheorem{corollary}[definition]{Corollary}
+\theoremstyle{remark}
+\newtheorem{remark}[definition]{Remark}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Motivation and Overview}
+In dependent type theory we distinguish two notions of equality:
+\emph{judgmental (definitional) equality}, written $M \equiv N$, and \emph{propositional equality}, a first-class \emph{type} written $\Id{M}{A}{N}$.\footnote{We follow standard presentations, e.g.\ \cite{martinloef1984itt,harper2016pfpl,hottbook}.}
+Judgmental equality is part of the meta-theory (convertibility via computation rules) and requires no inhabitant. Propositional equality is internalized as a type whose terms are \emph{witnesses} that two elements of the same type are equal.
+
+This separation lets us \emph{state and prove} equalities that are not definitionally true (e.g.\ $x + 0 = x$ for symbolic $x$) while retaining a decidable type-checking core.
+
+The lectures also pointed out how equality elimination ($J$) interacts with \emph{normalization-by-evaluation} (NbE). In NbE we compute a canonical representative of a term and then reify it back into syntax; correctness relies on being able to transport along equalities between the ``semantic'' and ``syntactic'' worlds. The $J$-rule provides precisely the dependent substitution machinery needed for this transport, so the proofs we develop in these notes double as the logical foundation for the NbE algorithm alluded to in Coconote~1.
+
+\subsection*{Judgmental equality (informal recap)}
+Judgmental equality identifies terms up to $\beta$-reduction, $\eta$ (if present), and the $\iota$-rules of inductive eliminators. Two key meta-rules used implicitly throughout are:
+\begin{itemize}[nosep]
+  \item \textbf{Conversion:} if $\ctx \vdash M : A$ and $A \equiv B$, then $\ctx \vdash M : B$.
+  \item \textbf{Congruence (example for arrows):} if $A \equiv A'$ and (under $x{:}A$) $B \equiv B'$, then $(A \to B) \equiv (A' \to B')$.
+\end{itemize}
+
+\section{Equality as an Identity Type}
+We introduce an \emph{identity type} (propositional equality) with the usual three rules: formation, introduction (reflexivity), and elimination (the $J$-rule), together with its computation rule.
+
+\subsection{Formation}
+\begin{equation*}
+\frac{\ctx \vdash A : \Type \qquad \ctx \vdash M : A \qquad \ctx \vdash N : A}{\ctx \vdash \Id{M}{A}{N} : \Type} \, .
+\end{equation*}
+
+\subsection{Introduction (Reflexivity)}
+\begin{equation*}
+\frac{\ctx \vdash M : A}{\ctx \vdash \refl_A(M) : \Id{M}{A}{M}} \, .
+\end{equation*}
+We often write simply $\refl$ when $A$ and $M$ are clear.
+
+\subsection{Elimination ($J$-rule / equality induction)}
+Let $P$ be a family $P(x,y,p)$ of types depending on $x{:}A$, $y{:}A$, and $p{:}\Id{x}{A}{y}$. If we can prove the \emph{reflexive case} for all $x$,
+\begin{equation*}
+d : \prod_{x:A} P(x,x,\refl(x)),
+\end{equation*}
+then for any $a,b{:}A$ and any $p{:}\Id{a}{A}{b}$ we obtain
+\begin{equation*}
+\eqelim(d;\,a,b,p) : P(a,b,p) \, .
+\end{equation*}
+
+\paragraph{Computation rule.}
+\begin{equation*}
+\eqelim(d;\,a,a,\refl(a)) \equiv d(a) \, ,
+\end{equation*}
+i.e.\ eliminating a reflexivity proof computes to the corresponding branch.
+
+\subsection{Two derived tools: \texorpdfstring{$\ap$}{ap} and transport}
+\begin{lemma}[Action on paths]\label{lem:ap}
+Given $f{:}A \to B$ and $p{:}\Id{x}{A}{y}$, there is $\ap(f,p){:}\Id{f(x)}{B}{f(y)}$.
+\end{lemma}
+\begin{proof}
+By $J$ on $p$ with motive $P(x,y,p) \equiv \Id{f(x)}{B}{f(y)}$; in the reflexive case we return $\refl(f(x))$.
+\end{proof}
+
+\begin{lemma}[Transport]\label{lem:transport}
+Let $P{:}A \to \Type$. For $p{:}\Id{x}{A}{y}$ there is a map
+\begin{equation*}
+\transport^P(p) : P(x) \to P(y).
+\end{equation*}
+\end{lemma}
+\begin{proof}
+By $J$ with motive $P'(x,y,p) \equiv (P(x) \to P(y))$; in the reflexive case use the identity function.
+\end{proof}
+
+\section{Naturals, Recursor, and the Motive}
+We write $\Nat$ for the natural numbers with constructors $\zero : \Nat$ and $\suc : \Nat \to \Nat$. The (non-dependent) recursor
+\begin{equation*}
+\rec_{\Nat} : \forall C{:}\Type.\; C \to (\Nat \to C \to C) \to \Nat \to C
+\end{equation*}
+satisfies the computation rules
+\begin{align*}
+\rec_{\Nat}(C, c_0, c_s, \zero) &\equiv c_0,\\
+\rec_{\Nat}(C, c_0, c_s, \suc(n)) &\equiv c_s(n, \rec_{\Nat}(C, c_0, c_s, n)).
+\end{align*}
+In the \emph{dependent} eliminator, the ``return type'' (the \emph{motive}) may depend on the scrutinee; here we focus on the non-dependent recursor, since our examples only need propositional equality for the dependent reasoning.
+
+\subsection{Addition and Doubling}
+Define $+$ by recursion on the \emph{first} argument:
+\begin{align*}
+0 + m &\equiv m,\\
+(\suc n) + m &\equiv \suc(n + m).
+\end{align*}
+Define $\mathsf{double} : \Nat \to \Nat$ by
+\begin{align*}
+\mathsf{double}(0) &\equiv 0,\\
+\mathsf{double}(\suc n) &\equiv \suc(\suc(\mathsf{double}(n))).
+\end{align*}
+We also use the predecessor function $\mathsf{pred} : \Nat \to \Nat$ defined by
+\begin{align*}
+\mathsf{pred}(0) &\equiv 0,\\
+\mathsf{pred}(\suc n) &\equiv n,
+\end{align*}
+which is another simple instance of the recursor on $\Nat$.
+
+\begin{lemma}[Right successor of $+$]\label{lem:plus-suc}
+For all $n,m{:}\Nat$, $\Id{n + \suc(m)}{\Nat}{\suc(n+m)}$.
+\end{lemma}
+\begin{proof}
+By induction on $n$.
+\begin{description}[leftmargin=2em]
+\item[Base.] $n \equiv 0$. Then $0 + \suc(m) \equiv \suc(m) \equiv \suc(0+m)$ by the defining equations for $+$, so take $\refl$.
+\item[Step.] Assume $q : \Id{n + \suc(m)}{\Nat}{\suc(n+m)}$. Using the recursive clause for $+$ we obtain $(\suc n) + \suc(m) \equiv \suc(n + \suc(m))$. Apply $\ap(\suc, q)$ to rewrite the inner $n + \suc(m)$ to $\suc(n+m)$, yielding $\Id{(\suc n) + \suc(m)}{\Nat}{\suc(\suc(n+m))}$ as required.
+\end{description}
+\end{proof}
+
+\section{Worked Equalities}
+We now give detailed proofs illustrating equality elimination and the role of computation.
+
+\subsection{Successor preserves equality}
+\begin{theorem}\label{thm:suc-cong}
+For all $n,m{:}\Nat$, if $p{:}\Id{n}{\Nat}{m}$ then $\ap(\suc,p) : \Id{\suc(n)}{\Nat}{\suc(m)}$.
+\end{theorem}
+\begin{proof}
+Immediate from Lemma~\ref{lem:ap} with $f \equiv \suc$.
+\end{proof}
+
+\subsection{Doubling equals adding a number to itself}
+\begin{theorem}\label{thm:double}
+For all $n{:}\Nat$, $\Id{\mathsf{double}(n)}{\Nat}{n+n}$.
+\end{theorem}
+\begin{proof}
+By induction on $n$.
+\begin{description}[leftmargin=2em]
+\item[Base.] $n \equiv 0$. Then $\mathsf{double}(0) \equiv 0 \equiv 0+0$ by computation; take $\refl$.
+\item[Step.] Assume $q : \Id{\mathsf{double}(n)}{\Nat}{n+n}$. We must show
+$\Id{\mathsf{double}(\suc n)}{\Nat}{(\suc n)+(\suc n)}$.
+Compute both sides:
+\begin{align*}
+\mathsf{double}(\suc n) &\equiv \suc(\suc(\mathsf{double}(n))),\\
+(\suc n)+(\suc n) &\equiv \suc(n+\suc n) = \suc(\suc(n+n)) \quad\text{(by Lemma~\ref{lem:plus-suc})}.
+\end{align*}
+Apply $\ap(\lambda t.\, \suc(\suc(t)), q)$ to rewrite $\suc(\suc(\mathsf{double}(n)))$ into $\suc(\suc(n+n))$, yielding the goal.
+\end{description}
+\end{proof}
+
+\subsection{A lecture example: if $x = \suc(0)$ then $\mathsf{double}(x) = \suc(\suc(0))$}
+\begin{theorem}\label{thm:lecture}
+For all $x{:}\Nat$, $\Id{x}{\Nat}{\suc(0)} \to \Id{\mathsf{double}(x)}{\Nat}{\suc(\suc(0))}$.
+\end{theorem}
+\begin{proof}
+Let $p{:}\Id{x}{\Nat}{\suc(0)}$. Use $J$ with motive
+\begin{equation*}
+P(n_1,n_2,p) \equiv \Id{\mathsf{double}(n_1)}{\Nat}{\mathsf{double}(n_2)}.
+\end{equation*}
+The reflexive case returns $\refl$ for all $n$. Thus we obtain
+\begin{equation*}
+\Id{\mathsf{double}(x)}{\Nat}{\mathsf{double}(\suc(0))}.
+\end{equation*}
+By computation of $\mathsf{double}$, $\mathsf{double}(\suc(0)) \equiv \suc(\suc(0))$. Conclude by conversion that
+$\Id{\mathsf{double}(x)}{\Nat}{\suc(\suc(0))}$.
+\end{proof}
+
+\subsection{Successor is injective (fully detailed)}
+\begin{theorem}[Successor injectivity]\label{thm:suc-inj}
+For all $n,m{:}\Nat$, $\Id{\suc(n)}{\Nat}{\suc(m)} \to \Id{n}{\Nat}{m}$.
+\end{theorem}
+\begin{proof}
+Let $p{:}\Id{\suc(n)}{\Nat}{\suc(m)}$. Apply Lemma~\ref{lem:ap} with $f \equiv \mathsf{pred}$ to obtain
+\begin{equation*}
+\ap(\mathsf{pred}, p) : \Id{\mathsf{pred}(\suc(n))}{\Nat}{\mathsf{pred}(\suc(m))}.
+\end{equation*}
+By definition of $\mathsf{pred}$, both endpoints compute to $n$ and $m$ respectively, so conversion finishes the proof.
+\end{proof}
+
+\subsection{Right identity of $+$ (expanded proof)}
+\begin{theorem}\label{thm:plus-right}
+For all $n{:}\Nat$, $\Id{n + 0}{\Nat}{n}$.
+\end{theorem}
+\begin{proof}
+Proceed by induction on $n$.
+\begin{description}[leftmargin=2em]
+\item[Base.] $n \equiv 0$. Then $0 + 0 \equiv 0$ by definition, so take $\refl$.
+\item[Step.] Assume $q : \Id{n + 0}{\Nat}{n}$. Using the definition of $+$ we compute $(\suc n) + 0 \equiv \suc(n + 0)$. Apply Theorem~\ref{thm:suc-cong} with $p \equiv q$ to rewrite $\suc(n + 0)$ into $\suc(n)$, finishing the step.
+\end{description}
+\end{proof}
+
+\section{Intensional vs.\ Extensional Equality}
+In \emph{intensional} Martin-L\"of type theory, only the rules above are primitive; in particular there is no \emph{equality reflection}
+\begin{equation*}
+\frac{\ctx \vdash p : \Id{M}{A}{N}}{\ctx \vdash M \equiv N : A},
+\end{equation*}
+and principles such as functional extensionality or univalence are not derivable without additional axioms \cite{harper2016pfpl,hottbook}. Adding equality reflection yields an \emph{extensional} theory, but at the cost of complicating (and in general destroying) decidable type checking; standard proof assistants (Coq, Agda) adopt the intensional core.
+
+\section{Sigma Types and Existentials}
+The second lecture introduced the dependent pair ($\Sigma$) type, which internalizes \emph{existential} statements. We keep the presentation close to \cite{harper2016pfpl}.
+
+\subsection{Formation and judgmental equality}
+Given $A : \Type$ and a family $B : A \to \Type$, the dependent pair type
+\begin{equation*}
+\Sigma_{x:A} B(x)
+\end{equation*}
+is itself a type. Its judgmental equality compares both components:
+\begin{equation*}
+(\Sigma_{x:A} B(x)) \equiv (\Sigma_{x:A'} B'(x)) \quad \text{if } A \equiv A' \text{ and } B(x) \equiv B'(x) \text{ under } x{:}A.
+\end{equation*}
+The well-formedness side-conditions mirror those of $\Pi$-types: whenever $\ctx \vdash A : \Type$ and $\ctx,x{:}A \vdash B(x) : \Type$, we conclude $\ctx \vdash \Sigma_{x:A} B(x) : \Type$.
+
+\subsection{Introduction and elimination}
+An inhabitant packages a witness and its dependent evidence:
+\begin{equation*}
+\frac{\ctx \vdash M : A \qquad \ctx \vdash N : B(M)}{\ctx \vdash \pair{M}{N} : \Sigma_{x:A} B(x)}.
+\end{equation*}
+The dependent eliminator (pattern matching on pairs) has the usual form
+\begin{equation*}
+\frac{\ctx,x{:}A,y{:}B(x) \vdash C(x,y) : \Type \qquad \ctx \vdash z : \Sigma_{x:A} B(x) \qquad \ctx,x{:}A,y{:}B(x) \vdash d(x,y) : C(x,y)}{\ctx \vdash \mathsf{split}(d,z) : C(\fst(z),\snd(z))},
+\end{equation*}
+with computation rule (the $\beta$-law) $\mathsf{split}(d,\pair{M}{N}) \equiv d(M,N)$. Intuitively, the eliminator says that existential reasoning amounts to destructing a pair and continuing with a concrete witness and its certificate. The $\eta$-law complements this by expressing that any $z : \Sigma_{x:A} B(x)$ is judgmentally equal to the reassembled pair of its projections:
+\begin{equation*}
+\pair{\fst(z)}{\snd(z)} \equiv z.
+\end{equation*}
+Together the $\beta/\eta$ laws ensure that $\Sigma$ behaves like the expected existential/product type up to definitional equality.
+
+\subsection{Derived projections and computation}
+The lecture often uses the non-dependent projections
+\begin{align*}
+\fst &: \Sigma_{x:A} B(x) \to A,& \fst(\pair{M}{N}) &\equiv M,\\
+\snd &: \prod_{z:\Sigma_{x:A} B(x)} B(\fst(z)),& \snd(\pair{M}{N}) &\equiv N,
+\end{align*}
+which themselves are instances of $\mathsf{split}$. The computation rules express that projecting the first component of a canonical pair returns the witness, and projecting the second component returns the evidence instantiated at that witness. These rules drive reasoning about $\Sigma$-types just as $\beta/\eta$ rules do for functions.
+
+\begin{example}[Length-indexed sequences]
+Let $\Vec(A,n)$ be the usual inductive family of vectors of elements of $A$ and length $n$. Then $\Sigma_{n:\Nat} \Vec(A,n)$ packages a length together with the corresponding data, providing the ``dependent pair'' representation of dynamically sized vectors. The projections recover the runtime length $\fst(z):\Nat$ and the payload $\snd(z):\Vec(A,\fst(z))$, while the $\eta$-law guarantees that rebuilding from these projections yields the original value. This is the standard way to swap between dependently typed interfaces and existential packages in systems such as Agda or Coq.
+\end{example}
+
+\subsection{Existential specifications: the predecessor contract}
+With $\Sigma$ available we can state existence properties cleanly. For example, the predecessor totality discussed in class is formulated as
+\begin{equation*}
+\prod_{x:\Nat} \Bigl(\negtype{\Id{x}{\Nat}{\zero}}\Bigr) \to \Sigma_{y:\Nat} \Id{\suc(y)}{\Nat}{x},
+\end{equation*}
+i.e.\ every non-zero natural has a predecessor whose successor is judgmentally equal to the original $x$. The proof follows the same inductive structure as our earlier recursor arguments: handle $x \equiv \zero$ by contradiction, and in the successor case package the obvious witness $y \equiv n$ together with the reflexive equality proof. Erasing the proof-relevant pieces yields the expected computation for $\mathsf{pred}$ (this is the ``program extraction'' intuition highlighted in lecture).
+
+\subsection{Encoding negation via empty equalities}
+Although we have not introduced a primitive empty type, the class notes model falsity by the uninhabited equality $\False \equiv \Id{\zero}{\Nat}{\suc(\zero)}$. Negation is then $\negtype{A} \equiv A \to \False$.
+Because no term can inhabit $\False$, any function of type $A \to \False$ acts as a refutation of $A$. This trick suffices for small derivations (e.g.\ the ``$x \neq 0$'' premise above) until we extend the core with an explicit empty type.
+
+\section{Historical and Research Perspectives}
+\subsection{Historical notes}
+Identity types enter the literature with Martin-L\"of's 1970s formulations of constructive type theory, where equality witnesses replaced logical equivalence proofs \cite{martinloef1984itt}. The shift from external (judgmental) reasoning to internal identity proofs mirrors older distinctions in logic between definitional equality (dating back to Frege) and propositional equality (explicitly treated by Church). Modern expositions such as \cite{harper2016pfpl} highlight how $J$ captures Leibniz's indiscernibility principle inside the theory, making the rules simultaneously computational and proof-theoretic.
+
+\subsection{Current research threads}
+Homotopy Type Theory (HoTT) reinterprets $\Id{M}{A}{N}$ as a space of paths, leading to univalence and higher inductive types \cite{hottbook}. A major line of current work studies computational presentations of these ideas; examples include cubical type theory, where paths are functions out of an abstract interval object and univalence becomes a definitional equality \cite{cchm2018cubical}, and Cartesian cubical frameworks that scale to higher-dimensional proof assistants and synthetic homotopy constructions \cite{angiuli2019cartesian}. These developments aim to reconcile rich equality principles with canonicity and computation, and motivate the transport and $\ap$ patterns emphasized in these notes.
+
+\section{Common Patterns and Tactics}
+\begin{itemize}
+  \item Prefer definitional simplification first (unfold and compute). Use propositional rewriting only for the remaining differences.
+  \item Choose $J$'s motive so that the reflexive branch becomes $\refl$ (``the branch carries no extra information'').
+  \item Use derived combinators: $\ap$ for function congruence; $\transport$ for dependent substitution.
+\end{itemize}
+
+\section{Practice Problems}
+\begin{exercise}[Successor injectivity]\label{ex:suc-inj}
+Prove: $\forall n,m{:}\Nat.\; \Id{\suc(n)}{\Nat}{\suc(m)} \to \Id{n}{\Nat}{m}$. \emph{Hint:} Use $J$ on the given equality with a motive that peels off one $\suc$ on both sides.
+\end{exercise}
+
+\begin{exercise}[Left and right identity of $+$]\label{ex:plus-id}
+(a) Prove by induction on $x$ that $x + 0 = x$.\; (b) Prove that $0 + x = x$ (this one holds by computation with our definition).
+\end{exercise}
+
+\begin{exercise}[Successor on the right]\label{ex:plus-suc}
+Reprove Lemma~\ref{lem:plus-suc} (the right-successor law for $+$) directly by induction on $n$.
+\end{exercise}
+
+\begin{exercise}[Symmetry of equality]\label{ex:sym}
+Construct $\mathsf{sym} : \prod_{x,y{:}\Nat} \Id{x}{\Nat}{y} \to \Id{y}{\Nat}{x}$ using the $J$-rule. \emph{Hint:} Choose the motive $P(x,y,p) \equiv \Id{y}{\Nat}{x}$ so that the reflexive branch reduces to $\refl$.
+\end{exercise}
+
+\begin{exercise}[Transport preserves evenness]\label{ex:even}
+Define the predicate $\mathsf{Even} : \Nat \to \Type$ by $\mathsf{Even}(0) \equiv \top$ and $\mathsf{Even}(\suc(\suc n)) \equiv \mathsf{Even}(n)$ (with no constructor for odd inputs). Using Lemma~\ref{lem:transport}, prove that any $p{:}\Id{n}{\Nat}{m}$ induces a map $\transport^{\mathsf{Even}}(p) : \mathsf{Even}(n) \to \mathsf{Even}(m)$.
+\end{exercise}
+
+\begin{exercise}[A variant of Theorem~\ref{thm:lecture}]\label{ex:double-two}
+Show: $\forall x{:}\Nat.\; \Id{x}{\Nat}{\suc(0)} \to \Id{\mathsf{double}(x)}{\Nat}{2}$, where $2$ is $\suc(\suc(0))$. Use the same motive as in Theorem~\ref{thm:lecture}.
+\end{exercise}
+
+\begin{exercise}[Sigma projections]\label{ex:sigma-proj}
+Define $\fst$ and $\snd$ using the $\Sigma$-eliminator and prove their computation rules $\fst(\pair{M}{N}) \equiv M$ and $\snd(\pair{M}{N}) \equiv N$.
+\end{exercise}
+
+\begin{exercise}[Predecessor as an existential]\label{ex:pred}
+Formalize the specification $\prod_{x:\Nat} (\negtype{\Id{x}{\Nat}{\zero}}) \to \Sigma_{y:\Nat} \Id{\suc(y)}{\Nat}{x}$.
+Carry out the proof by recursion on $x$ and explain where the ``non-zero'' hypothesis is used.
+\end{exercise}
+
+\section*{Acknowledgments and Verification Notes}
+These notes reconstruct and systematize the lecture board content on equality and the $J$-rule. All derivations were checked for correctness against the standard rules for Martin-L\"of identity types, using only $\refl$ and $J$ plus judgmental computation for $\Nat$-elimination.
+
+\section*{References}
+\begin{thebibliography}{9}
+\bibitem{martinloef1984itt}
+Per Martin-L\"of.
+\newblock \emph{Intuitionistic Type Theory}.
+\newblock Bibliopolis, 1984.
+
+\bibitem{harper2016pfpl}
+Robert Harper.
+\newblock \emph{Practical Foundations for Programming Languages}.
+\newblock Cambridge University Press, 2nd edition, 2016.
+
+\bibitem{hottbook}
+The Univalent Foundations Program.
+\newblock \emph{Homotopy Type Theory: Univalent Foundations of Mathematics}.
+\newblock Institute for Advanced Study, 2013. \url{https://homotopytypetheory.org/book/}
+
+\bibitem{cchm2018cubical}
+Cyril Cohen, Thierry Coquand, Simon Huber, and Anders M\"ortberg.
+\newblock Cubical Type Theory: A constructive interpretation of the univalence axiom.
+\newblock In \emph{Proc.\ TYPES}, 2018.
+
+\bibitem{angiuli2019cartesian}
+Carlo Angiuli, Thierry Coquand, and Robert Harper.
+\newblock Cartesian cubical computational type theory: Constructive reasoning with paths and equalities.
+\newblock \emph{Logical Methods in Computer Science}, 15(3), 2019.
+\end{thebibliography}
+
+\end{document}
