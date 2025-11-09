@@ -1,6 +1,6 @@
 \documentclass[11pt]{article}
 \usepackage[margin=1in]{geometry}
-\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{amsmath,amssymb,amsthm,mathtools,proof}
 \IfFileExists{stmaryrd.sty}{\usepackage{stmaryrd}}{}
 \usepackage{hyperref}
 \usepackage{enumitem}
@@ -8,7 +8,7 @@
 \usepackage{lmodern}
 
 \title{Equality in Dependent Type Theory: Lecture Notes}
-\author{Course Notes (Reconstructed and Verified)}
+\author{Elias Abou Farah and Arman Ahmed}
 \date{\today}
 
 % Macros
@@ -52,7 +52,6 @@ Judgmental equality is part of the meta-theory (convertibility via computation r
 
 This separation lets us \emph{state and prove} equalities that are not definitionally true (e.g.\ $x + 0 = x$ for symbolic $x$) while retaining a decidable type-checking core.
 
-The lectures also pointed out how equality elimination ($J$) interacts with \emph{normalization-by-evaluation} (NbE). In NbE we compute a canonical representative of a term and then reify it back into syntax; correctness relies on being able to transport along equalities between the ``semantic'' and ``syntactic'' worlds. The $J$-rule provides precisely the dependent substitution machinery needed for this transport, so the proofs we develop in these notes double as the logical foundation for the NbE algorithm alluded to in Coconote~1.
 
 \subsection*{Judgmental equality (informal recap)}
 Judgmental equality identifies terms up to $\beta$-reduction, $\eta$ (if present), and the $\iota$-rules of inductive eliminators. Two key meta-rules used implicitly throughout are:
@@ -60,7 +59,6 @@ Judgmental equality identifies terms up to $\beta$-reduction, $\eta$ (if present
   \item \textbf{Conversion:} if $\ctx \vdash M : A$ and $A \equiv B$, then $\ctx \vdash M : B$.
   \item \textbf{Congruence (example for arrows):} if $A \equiv A'$ and (under $x{:}A$) $B \equiv B'$, then $(A \to B) \equiv (A' \to B')$.
 \end{itemize}
-
 \section{Equality as an Identity Type}
 We introduce an \emph{identity type} (propositional equality) with the usual three rules: formation, introduction (reflexivity), and elimination (the $J$-rule), together with its computation rule.
 
@@ -75,6 +73,20 @@ We introduce an \emph{identity type} (propositional equality) with the usual thr
 \end{equation*}
 We often write simply $\refl$ when $A$ and $M$ are clear.
 
+\subsection{Elimination ($J$-rule) As Given in Lecture}
+We first note a (admittedly very large) $J$-rule as we have formulated all of our structures:
+\begin{gather*}
+\infer[]{\deduce[]{\deduce[]{\textsf{with refl}^A n \Rightarrow M}{\textsf{return } (n_1,\; n_2,\; p.R)}}{\ctx \vdash \textsf{eqElim } P \textsf{ as } N_1 = _A N_2}}{\ctx \vdash P: N_1 =_A N_2 & \ctx \vdash N_1:A & \ctx \vdash N_2:A & \deduce[]{\ctx,\; n_1:A,\; n_1, p:n_1 =_A n_2 \vdash R: u} {\ctx,\; A:A \vdash M: [n/n_1,\; n/n_2,\; refl^A n/p]R}}
+\end{gather*}
+At first look this is pretty incomprehensible, but, let's try to break this down:
+\begin{itemize}
+  \item P is the proof of equality that we would like to eliminate, specifically it shows that $n_1 = n_2$.
+  \item The type $R$ is, in some sense, the proof we would like to spit out, though pre-substitution, so we should pick our R such that $[n/n_1,\; n/n_2,\; refl^A n/p]R$ is the type of our goal proof. We see that we pass it some variables that may prove useful in constructing this.
+  \item We see that since our only way to introduce an equality is with \textsf{refl}, we can pattern-match on $P$ with this assumption.
+  \item Finally, $M$ is the term of type $R$ that proves our goal.
+  \item The rest of the premises are just ensuring that everything is well-typed.
+\end{itemize}
+ 
 \subsection{Elimination ($J$-rule / equality induction)}
 Let $P$ be a family $P(x,y,p)$ of types depending on $x{:}A$, $y{:}A$, and $p{:}\Id{x}{A}{y}$. If we can prove the \emph{reflexive case} for all $x$,
 \begin{equation*}
@@ -84,7 +96,6 @@ then for any $a,b{:}A$ and any $p{:}\Id{a}{A}{b}$ we obtain
 \begin{equation*}
 \eqelim(d;\,a,b,p) : P(a,b,p) \, .
 \end{equation*}
-
 \paragraph{Computation rule.}
 \begin{equation*}
 \eqelim(d;\,a,a,\refl(a)) \equiv d(a) \, ,
@@ -109,35 +120,7 @@ Let $P{:}A \to \Type$. For $p{:}\Id{x}{A}{y}$ there is a map
 By $J$ with motive $P'(x,y,p) \equiv (P(x) \to P(y))$; in the reflexive case use the identity function.
 \end{proof}
 
-\section{Naturals, Recursor, and the Motive}
-We write $\Nat$ for the natural numbers with constructors $\zero : \Nat$ and $\suc : \Nat \to \Nat$. The (non-dependent) recursor
-\begin{equation*}
-\rec_{\Nat} : \forall C{:}\Type.\; C \to (\Nat \to C \to C) \to \Nat \to C
-\end{equation*}
-satisfies the computation rules
-\begin{align*}
-\rec_{\Nat}(C, c_0, c_s, \zero) &\equiv c_0,\\
-\rec_{\Nat}(C, c_0, c_s, \suc(n)) &\equiv c_s(n, \rec_{\Nat}(C, c_0, c_s, n)).
-\end{align*}
-In the \emph{dependent} eliminator, the ``return type'' (the \emph{motive}) may depend on the scrutinee; here we focus on the non-dependent recursor, since our examples only need propositional equality for the dependent reasoning.
-
-\subsection{Addition and Doubling}
-Define $+$ by recursion on the \emph{first} argument:
-\begin{align*}
-0 + m &\equiv m,\\
-(\suc n) + m &\equiv \suc(n + m).
-\end{align*}
-Define $\mathsf{double} : \Nat \to \Nat$ by
-\begin{align*}
-\mathsf{double}(0) &\equiv 0,\\
-\mathsf{double}(\suc n) &\equiv \suc(\suc(\mathsf{double}(n))).
-\end{align*}
-We also use the predecessor function $\mathsf{pred} : \Nat \to \Nat$ defined by
-\begin{align*}
-\mathsf{pred}(0) &\equiv 0,\\
-\mathsf{pred}(\suc n) &\equiv n,
-\end{align*}
-which is another simple instance of the recursor on $\Nat$.
+\section{Worked Equalities}
 
 \begin{lemma}[Right successor of $+$]\label{lem:plus-suc}
 For all $n,m{:}\Nat$, $\Id{n + \suc(m)}{\Nat}{\suc(n+m)}$.
@@ -149,9 +132,6 @@ By induction on $n$.
 \item[Step.] Assume $q : \Id{n + \suc(m)}{\Nat}{\suc(n+m)}$. Using the recursive clause for $+$ we obtain $(\suc n) + \suc(m) \equiv \suc(n + \suc(m))$. Apply $\ap(\suc, q)$ to rewrite the inner $n + \suc(m)$ to $\suc(n+m)$, yielding $\Id{(\suc n) + \suc(m)}{\Nat}{\suc(\suc(n+m))}$ as required.
 \end{description}
 \end{proof}
-
-\section{Worked Equalities}
-We now give detailed proofs illustrating equality elimination and the role of computation.
 
 \subsection{Successor preserves equality}
 \begin{theorem}\label{thm:suc-cong}
@@ -263,6 +243,11 @@ The lecture often uses the non-dependent projections
 \fst &: \Sigma_{x:A} B(x) \to A,& \fst(\pair{M}{N}) &\equiv M,\\
 \snd &: \prod_{z:\Sigma_{x:A} B(x)} B(\fst(z)),& \snd(\pair{M}{N}) &\equiv N,
 \end{align*}
+Or as premises and conclusions:
+\begin{gather*}
+\infer[]{\ctx \vdash \textsf{fst} \langle M,\; N \rangle = M:A}{\ctx \vdash M:A & \ctx \vdash M:u &  \ctx \vdash N:[M/x]B & \ctx \vdash \Sigma x:A.B} \\
+\infer[]{\ctx \vdash \textsf{snd} \langle M,\; N \rangle = N:[M/x]B}{\ctx \vdash M:A &  \ctx \vdash M:u & \ctx \vdash N:[M/x]B & \ctx \vdash \Sigma x:A.B} \\
+\end{gather*}
 which themselves are instances of $\mathsf{split}$. The computation rules express that projecting the first component of a canonical pair returns the witness, and projecting the second component returns the evidence instantiated at that witness. These rules drive reasoning about $\Sigma$-types just as $\beta/\eta$ rules do for functions.
 
 \begin{example}[Length-indexed sequences]
@@ -328,10 +313,7 @@ Formalize the specification $\prod_{x:\Nat} (\negtype{\Id{x}{\Nat}{\zero}}) \to 
 Carry out the proof by recursion on $x$ and explain where the ``non-zero'' hypothesis is used.
 \end{exercise}
 
-\section*{Acknowledgments and Verification Notes}
-These notes reconstruct and systematize the lecture board content on equality and the $J$-rule. All derivations were checked for correctness against the standard rules for Martin-L\"of identity types, using only $\refl$ and $J$ plus judgmental computation for $\Nat$-elimination.
 
-\section*{References}
 \begin{thebibliography}{9}
 \bibitem{martinloef1984itt}
 Per Martin-L\"of.
