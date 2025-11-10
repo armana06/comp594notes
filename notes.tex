@@ -231,7 +231,7 @@ The dependent eliminator (pattern matching on pairs) has the usual form
 \begin{equation*}
 \frac{\ctx,x{:}A,y{:}B(x) \vdash C(x,y) : \Type \qquad \ctx \vdash z : \Sigma_{x:A} B(x) \qquad \ctx,x{:}A,y{:}B(x) \vdash d(x,y) : C(x,y)}{\ctx \vdash \mathsf{split}(d,z) : C(\fst(z),\snd(z))},
 \end{equation*}
-with computation rule (the $\beta$-law) $\mathsf{split}(d,\pair{M}{N}) \equiv d(M,N)$. Intuitively, the eliminator says that existential reasoning amounts to destructing a pair and continuing with a concrete witness and its certificate. The $\eta$-law complements this by expressing that any $z : \Sigma_{x:A} B(x)$ is judgmentally equal to the reassembled pair of its projections:
+with computation rule (the $\beta$-law) $\mathsf{split}(d,\pair{M}{N}) \equiv d(M,N)$. Intuitively, the eliminator says that existential reasoning amounts to destructing a pair and continuing with a concrete witness and its certificate. The $\eta$-law complements this by expressing that any $z : \Sigma_{x:A} B(x)$ is propositionally equal to the reassembled pair of its projections:
 \begin{equation*}
 \pair{\fst(z)}{\snd(z)} \equiv z.
 \end{equation*}
@@ -244,10 +244,9 @@ The lecture often uses the non-dependent projections
 \snd &: \prod_{z:\Sigma_{x:A} B(x)} B(\fst(z)),& \snd(\pair{M}{N}) &\equiv N,
 \end{align*}
 Or as premises and conclusions:
-\begin{gather*}
-\infer[]{\ctx \vdash \textsf{fst} \langle M,\; N \rangle = M:A}{\ctx \vdash M:A & \ctx \vdash M:u &  \ctx \vdash N:[M/x]B & \ctx \vdash \Sigma x:A.B} \\
-\infer[]{\ctx \vdash \textsf{snd} \langle M,\; N \rangle = N:[M/x]B}{\ctx \vdash M:A &  \ctx \vdash M:u & \ctx \vdash N:[M/x]B & \ctx \vdash \Sigma x:A.B} \\
-\end{gather*}
+\[
+\mathsf{fst}(\langle M,N\rangle) \equiv M\qquad \mathsf{snd}(\langle M,N\rangle) \equiv N.
+\]
 which themselves are instances of $\mathsf{split}$. The computation rules express that projecting the first component of a canonical pair returns the witness, and projecting the second component returns the evidence instantiated at that witness. These rules drive reasoning about $\Sigma$-types just as $\beta/\eta$ rules do for functions.
 
 \begin{example}[Length-indexed sequences]
@@ -259,7 +258,7 @@ With $\Sigma$ available we can state existence properties cleanly. For example, 
 \begin{equation*}
 \prod_{x:\Nat} \Bigl(\negtype{\Id{x}{\Nat}{\zero}}\Bigr) \to \Sigma_{y:\Nat} \Id{\suc(y)}{\Nat}{x},
 \end{equation*}
-i.e.\ every non-zero natural has a predecessor whose successor is judgmentally equal to the original $x$. The proof follows the same inductive structure as our earlier recursor arguments: handle $x \equiv \zero$ by contradiction, and in the successor case package the obvious witness $y \equiv n$ together with the reflexive equality proof. Erasing the proof-relevant pieces yields the expected computation for $\mathsf{pred}$ (this is the ``program extraction'' intuition highlighted in lecture).
+i.e.\ every non-zero natural has a predecessor whose successor is propositionally equal to the original $x$. The proof follows the same inductive structure as our earlier recursor arguments: handle $x \equiv \zero$ by contradiction, and in the successor case package the obvious witness $y \equiv n$ together with the reflexive equality proof. Erasing the proof-relevant pieces yields the expected computation for $\mathsf{pred}$ (this is the ``program extraction'' intuition highlighted in lecture).
 
 \subsection{Encoding negation via empty equalities}
 Although we have not introduced a primitive empty type, the class notes model falsity by the uninhabited equality $\False \equiv \Id{\zero}{\Nat}{\suc(\zero)}$. Negation is then $\negtype{A} \equiv A \to \False$.
