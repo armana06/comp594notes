@@ -222,36 +222,75 @@ is itself a type. Its judgmental equality compares both components:
 \end{equation*}
 The well-formedness side-conditions mirror those of $\Pi$-types: whenever $\ctx \vdash A : \Type$ and $\ctx,x{:}A \vdash B(x) : \Type$, we conclude $\ctx \vdash \Sigma_{x:A} B(x) : \Type$.
 
-\subsection{Introduction and elimination}
-An inhabitant packages a witness and its dependent evidence:
+\subsection{Introduction, Projections, and Elimination}
+
+An inhabitant of a dependent pair packages a witness and its dependent evidence:
 \begin{equation*}
-\frac{\ctx \vdash M : A \qquad \ctx \vdash N : B(M)}{\ctx \vdash \pair{M}{N} : \Sigma_{x:A} B(x)}.
+\frac{\ctx \vdash M : A \qquad \ctx \vdash N : B(M)}
+     {\ctx \vdash \pair{M}{N} : \Sigma_{x:A} B(x)}.
 \end{equation*}
-The dependent eliminator (pattern matching on pairs) has the usual form
-\begin{equation*}
-\frac{\ctx,x{:}A,y{:}B(x) \vdash C(x,y) : \Type \qquad \ctx \vdash z : \Sigma_{x:A} B(x) \qquad \ctx,x{:}A,y{:}B(x) \vdash d(x,y) : C(x,y)}{\ctx \vdash \mathsf{split}(d,z) : C(\fst(z),\snd(z))},
-\end{equation*}
-with computation rule (the $\beta$-law) $\mathsf{split}(d,\pair{M}{N}) \equiv d(M,N)$. Intuitively, the eliminator says that existential reasoning amounts to destructing a pair and continuing with a concrete witness and its certificate. The $\eta$-law complements this by expressing that any $z : \Sigma_{x:A} B(x)$ is propositionally equal to the reassembled pair of its projections:
+
+\paragraph{Primitive projections.}
+Following the presentation from lecture, the projections
+\begin{align*}
+\fst &: \Sigma_{x:A} B(x) \to A,\\
+\snd &: \prod_{z : \Sigma_{x:A} B(x)} B(\fst(z)),
+\end{align*}
+are taken as \emph{primitive}.  
+They satisfy the computation (\(\beta\)) rules:
+\begin{align*}
+\fst(\pair{M}{N}) &\equiv M,\\
+\snd(\pair{M}{N}) &\equiv N.
+\end{align*}
+
+\paragraph{Elimination via projections.}
+To use a term $z : \Sigma_{x:A} B(x)$, we eliminate it by reasoning with its 
+components $\fst(z)$ and $\snd(z)$.  
+Given a family $C(x,y)$ depending on $x{:}A$ and $y{:}B(x)$, producing a term
+\[
+d(x,y) : C(x,y)
+\qquad \text{in context } x{:}A, y{:}B(x),
+\]
+yields a term
+\[
+C(\fst(z), \snd(z))
+\]
+when supplied with $z : \Sigma_{x:A} B(x)$.  
+No separate eliminator is needed: elimination proceeds directly by projecting.
+
+\paragraph{$\eta$-law.}
+Every dependent pair is determined by its projections:
 \begin{equation*}
 \pair{\fst(z)}{\snd(z)} \equiv z.
 \end{equation*}
-Together the $\beta/\eta$ laws ensure that $\Sigma$ behaves like the expected existential/product type up to definitional equality.
+This expresses that a value of $\Sigma_{x:A} B(x)$ is judgmentally equal to the pair formed
+from its witness and evidence.
 
-\subsection{Derived projections and computation}
-The lecture often uses the non-dependent projections
-\begin{align*}
-\fst &: \Sigma_{x:A} B(x) \to A,& \fst(\pair{M}{N}) &\equiv M,\\
-\snd &: \prod_{z:\Sigma_{x:A} B(x)} B(\fst(z)),& \snd(\pair{M}{N}) &\equiv N,
-\end{align*}
-Or as premises and conclusions:
+\subsection{Aside: a derived let-style eliminator (following NPS~\cite{nps1990})}
+
+Some presentations of dependent pairs, notably Nordström–Petersson–Smith~\cite{nps1990},
+treat a let-style eliminator as primitive and define the projections from it.  
+In the present notes we follow the lecture and take $\fst$ and $\snd$ as primitive, but a
+let-style eliminator can be \emph{derived}.
+
+Given a term
 \[
-\mathsf{fst}(\langle M,N\rangle) \equiv M\qquad \mathsf{snd}(\langle M,N\rangle) \equiv N.
+d(x,y) : C(x,y)
+\qquad\text{in context } x{:}A, y{:}B(x),
 \]
-which themselves are instances of $\mathsf{split}$. The computation rules express that projecting the first component of a canonical pair returns the witness, and projecting the second component returns the evidence instantiated at that witness. These rules drive reasoning about $\Sigma$-types just as $\beta/\eta$ rules do for functions.
+and $z : \Sigma_{x:A} B(x)$, define the eliminator:
+\begin{equation*}
+\mathsf{split}(d, z) \;\coloneqq\; d(\fst(z), \snd(z)).
+\end{equation*}
 
-\begin{example}[Length-indexed sequences]
-Let $\Vec(A,n)$ be the usual inductive family of vectors of elements of $A$ and length $n$. Then $\Sigma_{n:\Nat} \Vec(A,n)$ packages a length together with the corresponding data, providing the ``dependent pair'' representation of dynamically sized vectors. The projections recover the runtime length $\fst(z):\Nat$ and the payload $\snd(z):\Vec(A,\fst(z))$, while the $\eta$-law guarantees that rebuilding from these projections yields the original value. This is the standard way to swap between dependently typed interfaces and existential packages in systems such as Agda or Coq.
-\end{example}
+It satisfies the expected $\beta$-law:
+\begin{equation*}
+\mathsf{split}(d, \pair{M}{N}) \equiv d(M,N).
+\end{equation*}
+
+This derived operator corresponds to the primitive form used in
+Nordström–Petersson–Smith but is not taken as primitive here.
+
 
 \subsection{Existential specifications: the predecessor contract}
 With $\Sigma$ available we can state existence properties cleanly. For example, the predecessor totality discussed in class is formulated as
@@ -333,6 +372,12 @@ The Univalent Foundations Program.
 Cyril Cohen, Thierry Coquand, Simon Huber, and Anders M\"ortberg.
 \newblock Cubical Type Theory: A constructive interpretation of the univalence axiom.
 \newblock In \emph{Proc.\ TYPES}, 2018.
+
+\bibitem{nps1990}
+Bengt Nordström, Kent Petersson, and Jan M.~Smith.
+\newblock \emph{Programming in Martin-Löf's Type Theory: An Introduction}.
+\newblock Oxford University Press, 1990.
+
 
 \bibitem{angiuli2019cartesian}
 Carlo Angiuli, Kuen-Bang Hou, and Robert Harper.
