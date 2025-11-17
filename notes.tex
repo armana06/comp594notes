@@ -73,20 +73,46 @@ We introduce an \emph{identity type} (propositional equality) with the usual thr
 \end{equation*}
 We often write simply $\refl$ when $A$ and $M$ are clear.
 
-\subsection{Elimination ($J$-rule) As Given in Lecture}
-We first note a (admittedly very large) $J$-rule as we have formulated all of our structures:
+\subsection{Elimination (J-rule) As Given in Lecture}
+
+We first note a (admittedly very large) J-rule as we have formulated all of our structures:
 \begin{gather*}
-\infer[]{\deduce[]{\deduce[]{\textsf{with refl}^A n \Rightarrow M}{\textsf{return } (n_1,\; n_2,\; p.R)}}{\ctx \vdash \textsf{eqElim } P \textsf{ as } N_1 = _A N_2}}{\ctx \vdash P: N_1 =_A N_2 & \ctx \vdash N_1:A & \ctx \vdash N_2:A & \deduce[]{\ctx,\; n_1:A,\; n_1, p:n_1 =_A n_2 \vdash R: u} {\ctx,\; A:A \vdash M: [n/n_1,\; n/n_2,\; refl^A n/p]R}}
+\infer[]{%
+  \deduce[]{%
+    \deduce[]{\textsf{with }\refl^A(n) \Rightarrow M}{\textsf{return } (n_1,\; n_2,\; p.R)}%
+  }{\Gamma \vdash \textsf{eqElim } P \textsf{ as } N_1 =_A N_2}%
+}{%
+  \Gamma \vdash P : N_1 =_A N_2
+  \;\; & \;\;
+  \Gamma \vdash N_1 : A
+  \;\; & \;\;
+  \Gamma \vdash N_2 : A
+  \;\; & \;\;
+  \deduce[]{%
+    \Gamma,\; n_1 : A,\; n_2 : A,\; p : n_1 =_A n_2 \vdash R : u
+  }{%
+    \Gamma,\; A : A \vdash M : [N_1/n_1,\; N_2/n_2,\; P/p]R
+  }%
+}
 \end{gather*}
-At first look this is pretty incomprehensible, but, let's try to break this down:
+
+At first look this is pretty incomprehensible, but let us try to break this down:
 \begin{itemize}
-  \item P is the proof of equality that we would like to eliminate, specifically it shows that $n_1 = n_2$.
-  \item The type $R$ is, in some sense, the proof we would like to spit out, though pre-substitution, so we should pick our R such that $[n/n_1,\; n/n_2,\; refl^A n/p]R$ is the type of our goal proof. We see that we pass it some variables that may prove useful in constructing this.
-  \item We see that since our only way to introduce an equality is with \textsf{refl}, we can pattern-match on $P$ with this assumption.
-  \item Finally, $M$ is the term of type $R$ that proves our goal.
-  \item The rest of the premises are just ensuring that everything is well-typed.
+  \item $P$ is the proof of equality that we would like to eliminate; specifically it shows that
+        $n_1 = n_2$.
+  \item The type $R$ is, in some sense, the proof we would like to produce, though
+        \emph{before} substituting the actual endpoints.  
+        We therefore require that
+        \[
+           [\,N_1/n_1,\; N_2/n_2,\; P/p\,]R
+        \]
+        is the type of the goal in the reflexive case.
+  \item Since the only way to introduce an equality is with $\refl$, we may pattern-match on $P$
+        with the assumption $P \equiv \refl^A(N_1)$.
+  \item $M$ is the branch of type $R$ handling that reflexive case.
+  \item The remaining premises ensure that each of these pieces is well typed.
 \end{itemize}
- 
+
 \subsection{Elimination ($J$-rule / equality induction)}
 Let $P$ be a family $P(x,y,p)$ of types depending on $x{:}A$, $y{:}A$, and $p{:}\Id{x}{A}{y}$. If we can prove the \emph{reflexive case} for all $x$,
 \begin{equation*}
@@ -96,6 +122,14 @@ then for any $a,b{:}A$ and any $p{:}\Id{a}{A}{b}$ we obtain
 \begin{equation*}
 \eqelim(d;\,a,b,p) : P(a,b,p) \, .
 \end{equation*}
+
+This formulation is equivalent to the general $\mathsf{eqElim}$ rule from
+Section~2.3: there we eliminate a proof $P : N_1 =_A N_2$ by pattern matching
+on $\mathsf{refl}$ and supplying a branch $M$ of type $R$.  The clause
+$J(d; a,a,\mathsf{refl}(a)) \equiv d(a)$ is exactly the reflexive case of
+$\mathsf{eqElim}$ specialized to the family $P(x,y,p)$, so both rules express
+the same dependent elimination principle for identity types.
+
 \paragraph{Computation rule.}
 \begin{equation*}
 \eqelim(d;\,a,a,\refl(a)) \equiv d(a) \, ,
@@ -107,7 +141,10 @@ i.e.\ eliminating a reflexivity proof computes to the corresponding branch.
 Given $f{:}A \to B$ and $p{:}\Id{x}{A}{y}$, there is $\ap(f,p){:}\Id{f(x)}{B}{f(y)}$.
 \end{lemma}
 \begin{proof}
-By $J$ on $p$ with motive $P(x,y,p) \equiv \Id{f(x)}{B}{f(y)}$; in the reflexive case we return $\refl(f(x))$.
+By $J$ on $p$ with motive 
+$P(x,y,p) := \Id{f(x)}{B}{f(y)}$; 
+in the reflexive case we return $\refl(f(x))$.
+
 \end{proof}
 
 \begin{lemma}[Transport]\label{lem:transport}
@@ -117,7 +154,7 @@ Let $P{:}A \to \Type$. For $p{:}\Id{x}{A}{y}$ there is a map
 \end{equation*}
 \end{lemma}
 \begin{proof}
-By $J$ with motive $P'(x,y,p) \equiv (P(x) \to P(y))$; in the reflexive case use the identity function.
+By $J$ with motive $P'(x,y,p) := (P(x) \to P(y))$; in the reflexive case use the identity function.
 \end{proof}
 
 \section{Worked Equalities}
@@ -128,7 +165,10 @@ For all $n,m{:}\Nat$, $\Id{n + \suc(m)}{\Nat}{\suc(n+m)}$.
 \begin{proof}
 By induction on $n$.
 \begin{description}[leftmargin=2em]
-\item[Base.] $n \equiv 0$. Then $0 + \suc(m) \equiv \suc(m) \equiv \suc(0+m)$ by the defining equations for $+$, so take $\refl$.
+\item[Base.] $n \equiv 0$. Then 
+$0 + \suc(m) \equiv \suc(m) \equiv \suc(0+m)$ \text{(judgmental equality)}
+by the defining equations for $+$, so take $\refl$.
+
 \item[Step.] Assume $q : \Id{n + \suc(m)}{\Nat}{\suc(n+m)}$. Using the recursive clause for $+$ we obtain $(\suc n) + \suc(m) \equiv \suc(n + \suc(m))$. Apply $\ap(\suc, q)$ to rewrite the inner $n + \suc(m)$ to $\suc(n+m)$, yielding $\Id{(\suc n) + \suc(m)}{\Nat}{\suc(\suc(n+m))}$ as required.
 \end{description}
 \end{proof}
